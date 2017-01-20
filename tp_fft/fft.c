@@ -6,29 +6,30 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#define SAMPLE_LENGTH 512
+#define SAMPLE_LENGTH 8
 
 /** Prototipos **/
 
-void index_generator(int*) ;
+void index_generator(int,int*) ;
 unsigned int reverse(unsigned int,int) ; 
 void butterfly(int, int, int, int) ;
-void fft() ;
+void fft(int*) ;
 
 int main(void){
-	int indexes[SAMPLE_LENGTH] = {0}; 
+	int indexes[SAMPLE_LENGTH] = {0} ; 
+	int muestras[SAMPLE_LENGTH] = {0} ;
 	int i ;
-	index_generator(indexes) ; 
-	for( i = 0 ; i < SAMPLE_LENGTH ; i++ )
-		printf("%u\n", indexes[i]) ; 
-
+	for ( i = 0 ; i < SAMPLE_LENGTH ; i++ ){
+		muestras[i] = sin(2*3.14*i/8) ;
+		printf("%d\n",muestras[i]);
+	}
 	return 1 ;
 }
 
-void index_generator( int* indexes){
-	unsigned i ;
+void index_generator(int largo, int* indexes){
+	unsigned int i ;
 	for( i = 0; i < SAMPLE_LENGTH; i++ ){
-		indexes[i] = reverse(i, log2(SAMPLE_LENGTH)) ;
+		indexes[i] = reverse(i, log2(largo)) ;
 	}	
 }
 
@@ -42,18 +43,28 @@ unsigned int reverse (unsigned int index, int bits){
 	 return index >> ( 32 - bits ) ; 
 }
 
-void butterfly(int a0, int a1, int* o0, int* o1){
-	*o0 = a0 + a0*a1 ;
-	*o1 = a0 - a0*a1 ;
+void butterfly(int* a0, int* a1){
+	int aux = *a0 ;
+	*a0 = *a0 + *a0*(*a1) ;
+	*a1 = aux - aux*(*a1) ;
 }
 
-void fft(int* muestras){
-	int i,j ;
-	int index[SAMPLE_LENGTH] ;
-	char bits = log2(SAMPLE_LENGTH) ; 
+void fft(int* res){
+	int i,j,k ;
+	char niveles = log2(SAMPLE_LENGTH) ; 
+	int indexes[SAMPLE_LENGTH] = {0} ; 
+	/*int index[SAMPLE_LENGTH] ;
 	for ( i = 0 ; i < log2(SAMPLE_LENGTH) ; i++ ){
 		for( j = 0 ; j < SAMPLE_LENGTH ; j++ ){
 			butterfly( muestras[reverse(j,bit)], muestras[reverse(j+1,bit)] ) ;
 		}
-	}
+	}*/
+	for ( i = 1 ; i < niveles+1 ; i++ ){
+		index_generator(SAMPLE_LENGTH/i,indexes) ; 
+		for( j = 0 ; j < i ; j++ ){
+			for ( k = 0 ; k < SAMPLE_LENGTH/(2*i) ; k++){
+				butterfly(res[indexes[k]],res[indexes[k+1]]) ;
+			}
+		} 
+	}	
 }

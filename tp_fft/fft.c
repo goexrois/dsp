@@ -12,17 +12,24 @@
 
 void index_generator(int,int*) ;
 unsigned int reverse(unsigned int,int) ; 
-void butterfly(int, int, int, int) ;
-void fft(int*) ;
+void butterfly(float*, float*) ;
+void fft(float*) ;
+void p_array(float* array,int size);
 
 int main(void){
-	int indexes[SAMPLE_LENGTH] = {0} ; 
-	int muestras[SAMPLE_LENGTH] = {0} ;
+	float muestras[SAMPLE_LENGTH] = {0} ;
 	int i ;
 	for ( i = 0 ; i < SAMPLE_LENGTH ; i++ ){
-		muestras[i] = sin(2*3.14*i/8) ;
-		printf("%d\n",muestras[i]);
+		muestras[i] = sin(M_PI*2*i/8) ;
+		printf("%f\n",muestras[i]);
 	}
+	fft(muestras) ; 
+	puts("fft magic ------------------------------");
+	for ( i = 0 ; i < SAMPLE_LENGTH ; i++ ){
+		muestras[i] = sin(M_PI*2*i/8) ;
+		printf("%f\n",muestras[i]);
+	}
+
 	return 1 ;
 }
 
@@ -43,13 +50,13 @@ unsigned int reverse (unsigned int index, int bits){
 	 return index >> ( 32 - bits ) ; 
 }
 
-void butterfly(int* a0, int* a1){
-	int aux = *a0 ;
+void butterfly(float* a0, float* a1){
+	float aux = *a0 ;
 	*a0 = *a0 + *a0*(*a1) ;
 	*a1 = aux - aux*(*a1) ;
 }
 
-void fft(int* res){
+void fft(float* res){
 	int i,j,k ;
 	char niveles = log2(SAMPLE_LENGTH) ; 
 	int indexes[SAMPLE_LENGTH] = {0} ; 
@@ -59,12 +66,30 @@ void fft(int* res){
 			butterfly( muestras[reverse(j,bit)], muestras[reverse(j+1,bit)] ) ;
 		}
 	}*/
-	for ( i = 1 ; i < niveles+1 ; i++ ){
+	printf("i\tj\tk\n") ;
+	for ( i = 1 ; i <= niveles ; i++ ){
+		printf("%d\t",i);
 		index_generator(SAMPLE_LENGTH/i,indexes) ; 
 		for( j = 0 ; j < i ; j++ ){
-			for ( k = 0 ; k < SAMPLE_LENGTH/(2*i) ; k++){
-				butterfly(res[indexes[k]],res[indexes[k+1]]) ;
+			printf("%d\t",j);
+			for ( k = j*SAMPLE_LENGTH/(2*i) ; k < (j+1)*SAMPLE_LENGTH/(2*i) ; k +=  2){
+				printf("%d\n",k);
+				p_array(res,SAMPLE_LENGTH);
+				butterfly(&res[indexes[k]],&res[indexes[k+1]]) ;
+				p_array(res,SAMPLE_LENGTH);
 			}
 		} 
+	}
+	for ( i = 1 ; i < SAMPLE_LENGTH/2 ; i++ ){
+		butterfly(&res[i], &res[i+SAMPLE_LENGTH/2]) ;		
 	}	
+}
+
+void p_array(float* array,int size){
+	int i = 0 ;
+	printf("{") ;
+	for ( ; i < size ; i++ ){
+			printf("%f,",array[i]) ;
+	}
+	printf("{\n") ;
 }

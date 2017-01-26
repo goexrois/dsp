@@ -6,36 +6,57 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#define SAMPLE_LENGTH 8
+
+#define SAMPLE_LENGTH 1024
+
+typedef struct{
+	int a, b;
+} complex_t;
 
 /** Prototipos **/
 
 void index_generator(int,int*) ;
 unsigned int reverse(unsigned int,int) ; 
-void butterfly(float*, float*) ;
-void fft(float*) ;
-void p_array(float* array,int size);
-
-int main(void){
-	float muestras[SAMPLE_LENGTH] = {0} ;
+void butterfly(complex_t*, complex_t*) ;
+void fft(complex_t*,int) ;
+float norma (complex_t c) ;
+void p_array(FILE*,complex_t* array,int size);
+void p_array_int(FILE*,int* array,int size);
+complex_t complex_add(complex_t, complex_t);
+complex_t complex_sub(complex_t, complex_t);
+complex_t complex_mult(complex_t x, complex_t y);
+FILE* out ;
+FILE* debug ;
+int main(int argc,char** argv){
 	int i ;
-	for ( i = 0 ; i < SAMPLE_LENGTH ; i++ ){
-		muestras[i] = sin(M_PI*2*i/8) ;
-		printf("%f\n",muestras[i]);
+	int length = SAMPLE_LENGTH ;
+	complex_t * muestras ;
+	FILE* signal ;
+	debug = fopen("./debug","w+");
+	out = fopen("./out","w+");
+	signal = fopen("./signal","w+");
+
+	if( argc > 1 ){
+		length = atoi(argv[1]);  
+	} 
+
+	muestras = (complex_t *) malloc(sizeof(complex_t)*length) ;
+
+	for ( i = 0 ; i < length ; i++ ){
+		muestras[i].a = sin(M_PI*2*(i+1)/8) ;
+		muestras[i].b = 0 ;
 	}
-	fft(muestras) ; 
-	puts("fft magic ------------------------------");
-	for ( i = 0 ; i < SAMPLE_LENGTH ; i++ ){
-		muestras[i] = sin(M_PI*2*i/8) ;
-		printf("%f\n",muestras[i]);
-	}
+	p_array(signal,muestras,length) ;
+	fprintf(debug,"fft para retrasados ------------------------------\n");
+	fft(muestras,length) ; 
+	p_array(out,muestras,length) ;
 
 	return 1 ;
 }
 
 void index_generator(int largo, int* indexes){
 	unsigned int i ;
-	for( i = 0; i < SAMPLE_LENGTH; i++ ){
+	for( i = 0; i < largo; i++ ){
 		indexes[i] = reverse(i, log2(largo)) ;
 	}	
 }
@@ -50,46 +71,115 @@ unsigned int reverse (unsigned int index, int bits){
 	 return index >> ( 32 - bits ) ; 
 }
 
-void butterfly(float* a0, float* a1){
-	float aux = *a0 ;
-	*a0 = *a0 + *a0*(*a1) ;
-	*a1 = aux - aux*(*a1) ;
+complex_t complex_add(complex_t x, complex_t y){
+	complex_t result ;
+	result.a = x.a + y.a ;
+	result.b = x.b + y.b ;
+	
+	return result ;
 }
 
-void fft(float* res){
-	int i,j,k ;
-	char niveles = log2(SAMPLE_LENGTH) ; 
-	int indexes[SAMPLE_LENGTH] = {0} ; 
-	/*int index[SAMPLE_LENGTH] ;
-	for ( i = 0 ; i < log2(SAMPLE_LENGTH) ; i++ ){
-		for( j = 0 ; j < SAMPLE_LENGTH ; j++ ){
-			butterfly( muestras[reverse(j,bit)], muestras[reverse(j+1,bit)] ) ;
-		}
-	}*/
-	printf("i\tj\tk\n") ;
+complex_t complex_sub(complex_t x, complex_t y){
+	complex_t result ;
+	result.a = x.a - y.a ;
+	result.b = x.b - y.b ;
+	
+	return result ;
+}
+
+complex_t complex_mult(complex_t x, complex_t y){
+	complex_t result ;
+	result.a = x.a*y.a - x.b*y.b ;
+	result.b = x.a*y.b + x.b*y.a ;
+	
+	return result ;
+}
+
+void butterfly(complex_t* a0, complex_t* a1){
+	complex_t aux = *a0 ;
+	*a0 = complex_add(*a0, *a1) ;
+	*a1 = complex_sub(aux, *a1) ;
+}
+
+void fft(complex_t* res,int length){
+	int i,j,k,power ;
+	char niveles = log2(length) ; 
+	int * indexes = (int *) malloc(sizeof(int)*length) ;
+	complex_t w_m, w, mult_aux ;
+	fprintf(debug,"i\tj\tk\n") ;
+	index_generator(length,indexes) ; 
 	for ( i = 1 ; i <= niveles ; i++ ){
-		printf("%d\t",i);
-		index_generator(SAMPLE_LENGTH/i,indexes) ; 
-		for( j = 0 ; j < i ; j++ ){
-			printf("%d\t",j);
-			for ( k = j*SAMPLE_LENGTH/(2*i) ; k < (j+1)*SAMPLE_LENGTH/(2*i) ; k +=  2){
-				printf("%d\n",k);
-				p_array(res,SAMPLE_LENGTH);
-				butterfly(&res[indexes[k]],&res[indexes[k+1]]) ;
-				p_array(res,SAMPLE_LENGTH);
+		//index_generator(length/i,indexes) ; 
+		p_array_int(debug,indexes,length/i) ;
+		power	= pow(2,i) ;
+		w_m.a 	= cos(2*M_PI/i) ; 
+		w_m.b 	= -sin(2*M_PI/i) ; 
+		//for( j = 0 ; j < power ; j++ ){
+		for( j = 0 ; j < length ; j=j+power ){
+			w.a = 1 ;
+			w.b = 0 ;
+			//for ( k = j*length/power ; k < (j+1)*length/power ; k +=  2){
+			for ( k = 0 ; k < power/2 ; k++){
+				/*fprintf(debug,"%d\t",i);
+				fprintf(debug,"%d\t",j);
+				fprintf(debug,"%d\n",k);
+				p_array(debug,res,length);
+				if ( i == niveles ){
+					mult_aux = complex_mult(w, res[indexes[1]]) ;
+					butterfly(&res[indexes[0]],&mult_aux) ;
+					res[indexes[1]] = mult_aux; 
+				}
+				else {
+					fprintf(debug,"k=%d\tk+1=%d\n",indexes[k],indexes[k+1]) ;
+					mult_aux = complex_mult(w, res[indexes[k+1]]) ;
+ 					butterfly(&res[indexes[k]],&mult_aux) ;
+					res[indexes[k+1]] = mult_aux; 
+				}
+				w = complex_mult(w, w_m) ;
+				p_array(debug,res,length);
+				*/
+				fprintf(debug,"%d\t",i);
+				fprintf(debug,"%d\t",j);
+				fprintf(debug,"%d\n",k);
+				
+				p_array(debug,res,length);
+				fprintf(debug,"k=%d\tk+1=%d\n",indexes[j+k],indexes[j+k+power/2]) ;
+				
+				mult_aux = complex_mult(w, res[indexes[j+k+power/2]]) ;
+ 				butterfly(&res[indexes[k+j]],&mult_aux) ;
+				res[indexes[j+k+power/2]] = mult_aux; 
+				
+				w = complex_mult(w, w_m) ;
+				
+				p_array(debug,res,length);
+
 			}
+	fprintf(debug,"-------------------------\n");
 		} 
+	fprintf(debug,">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 	}
-	for ( i = 1 ; i < SAMPLE_LENGTH/2 ; i++ ){
-		butterfly(&res[i], &res[i+SAMPLE_LENGTH/2]) ;		
+	for ( i = 0 ; i < length/2 ; i++ ){
+		fprintf(debug,"k=%d\tk+1=%d\n",i,i+length/2) ;
+		butterfly(&res[i], &res[i+length/2]) ;		
 	}	
 }
 
-void p_array(float* array,int size){
+void p_array(FILE* fd,complex_t* array,int size){
 	int i = 0 ;
-	printf("{") ;
 	for ( ; i < size ; i++ ){
-			printf("%f,",array[i]) ;
+			fprintf(fd,"%f ",norma(array[i])) ;
 	}
-	printf("{\n") ;
+	fprintf(fd,"\n") ;
 }
+
+void p_array_int (FILE* fd, int* array,int size){
+	int i = 0 ;
+	for ( ; i < size ; i++ ){
+			fprintf(fd,"%d ",array[i]) ;
+	}
+			fprintf(fd,"%d ",array[i]) ;
+}
+
+float norma (complex_t c){
+	return sqrt((c.a * c.a) + (c.b * c.b)) ;
+} 

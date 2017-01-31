@@ -17,7 +17,7 @@ typedef struct{
 
 void index_generator(int,int*) ;
 unsigned int reverse(unsigned int,int) ; 
-void butterfly(complex_t*, complex_t*) ;
+void butterfly(complex_t*, complex_t*, int, int) ;
 void fft(complex_t*,int) ;
 float norma (complex_t c) ;
 void p_array(FILE*,complex_t* array,int size);
@@ -95,10 +95,18 @@ complex_t complex_mult(complex_t x, complex_t y){
 	return result ;
 }
 
-void butterfly(complex_t* a0, complex_t* a1){
+void butterfly(complex_t* a0, complex_t* a1, int order, int n){
+	complex_t W ;
+	complex_t mult_aux ;
+
+	W.a = cos(2*M_PI*order/n) ;
+	W.b = -sin(2*M_PI*order/n) ;
+
+	mult_aux = complex_mult(a1, W) ;
 	complex_t aux = *a0 ;
-	*a0 = complex_add(*a0, *a1) ;
-	*a1 = complex_sub(aux, *a1) ;
+
+	*a0 = complex_add(*a0, mult_aux) ;
+	*a1 = complex_sub(aux, mult_aux) ;
 }
 
 void fft(complex_t* res,int length){
@@ -107,37 +115,27 @@ void fft(complex_t* res,int length){
 	int * indexes = (int *) malloc(sizeof(int)*length) ;
 	complex_t w_m, w, mult_aux ;
 	fprintf(debug,"i\tj\tk\n") ;
-	index_generator(length,indexes) ; 
+//	index_generator(length,indexes) ; 
 	for ( i = 1 ; i <= niveles ; i++ ){
-		//index_generator(length/i,indexes) ; 
+		index_generator(length/i,indexes) ; 
 		p_array_int(debug,indexes,length/i) ;
 		power	= pow(2,i) ;
-		w_m.a 	= cos(2*M_PI/i) ; 
-		w_m.b 	= -sin(2*M_PI/i) ; 
-		//for( j = 0 ; j < power ; j++ ){
-		for( j = 0 ; j < length ; j=j+power ){
-			w.a = 1 ;
-			w.b = 0 ;
-			//for ( k = j*length/power ; k < (j+1)*length/power ; k +=  2){
-			for ( k = 0 ; k < power/2 ; k++){
-				/*fprintf(debug,"%d\t",i);
+		// w_m.a 	= cos(2*M_PI/i) ; 
+		// w_m.b 	= -sin(2*M_PI/i) ; 
+		for( j = 0 ; j < power ; j++ ){
+		//for( j = 0 ; j < length ; j=j+power ){
+			//w.a = 1 ;
+			//w.b = 0 ;
+			for ( k = j*length/power ; k < (j+1)*length/power ; k +=  2){
+			//for ( k = 0 ; k < power/2 ; k++){
+				fprintf(debug,"%d\t",i);
 				fprintf(debug,"%d\t",j);
 				fprintf(debug,"%d\n",k);
-				p_array(debug,res,length);
-				if ( i == niveles ){
-					mult_aux = complex_mult(w, res[indexes[1]]) ;
-					butterfly(&res[indexes[0]],&mult_aux) ;
-					res[indexes[1]] = mult_aux; 
-				}
-				else {
-					fprintf(debug,"k=%d\tk+1=%d\n",indexes[k],indexes[k+1]) ;
-					mult_aux = complex_mult(w, res[indexes[k+1]]) ;
- 					butterfly(&res[indexes[k]],&mult_aux) ;
-					res[indexes[k+1]] = mult_aux; 
-				}
-				w = complex_mult(w, w_m) ;
-				p_array(debug,res,length);
-				*/
+				//p_array(debug,res,length);
+				fprintf(debug,"k=%d\tk+1=%d\n",indexes[k],indexes[k+1]) ;
+ 				butterfly(&res[indexes[k]],&res[indexes[k+1]],,length/power) ;
+				//p_array(debug,res,length);
+				/*
 				fprintf(debug,"%d\t",i);
 				fprintf(debug,"%d\t",j);
 				fprintf(debug,"%d\n",k);
@@ -152,7 +150,7 @@ void fft(complex_t* res,int length){
 				w = complex_mult(w, w_m) ;
 				
 				p_array(debug,res,length);
-
+				*/
 			}
 	fprintf(debug,"-------------------------\n");
 		} 

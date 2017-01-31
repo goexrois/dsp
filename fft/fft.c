@@ -10,7 +10,7 @@
 #define SAMPLE_LENGTH 1024
 
 typedef struct{
-	int a, b;
+	float a, b;
 } complex_t;
 
 /** Prototipos **/
@@ -22,14 +22,17 @@ void fft(complex_t*,int) ;
 float norma (complex_t c) ;
 void p_array(FILE*,complex_t* array,int size);
 void p_array_int(FILE*,int* array,int size);
+void p_array_float(FILE*,float* array,int size);
 complex_t complex_add(complex_t, complex_t);
 complex_t complex_sub(complex_t, complex_t);
 complex_t complex_mult(complex_t x, complex_t y);
+void print_complex (FILE* fd,complex_t z);
 FILE* out ;
 FILE* debug ;
 int main(int argc,char** argv){
 	int i ;
 	int length = SAMPLE_LENGTH ;
+	float * signal_samples ;
 	complex_t * muestras ;
 	FILE* signal ;
 	debug = fopen("./debug","w+");
@@ -40,13 +43,15 @@ int main(int argc,char** argv){
 		length = atoi(argv[1]);  
 	} 
 
+	signal_samples = (float*) malloc(sizeof(float)*length) ;
 	muestras = (complex_t *) malloc(sizeof(complex_t)*length) ;
 
 	for ( i = 0 ; i < length ; i++ ){
-		muestras[i].a = sin(M_PI*2*(i+1)/8) ;
+		signal_samples[i] = sin(M_PI*2*(i+1)/length) ;
+		muestras[i].a = signal_samples[i] ; 
 		muestras[i].b = 0 ;
 	}
-	p_array(signal,muestras,length) ;
+	p_array_float(signal,signal_samples,length) ;
 	fprintf(debug,"fft para retrasados ------------------------------\n");
 	fft(muestras,length) ; 
 	p_array(out,muestras,length) ;
@@ -95,6 +100,10 @@ complex_t complex_mult(complex_t x, complex_t y){
 	return result ;
 }
 
+void print_complex (FILE* fd,complex_t z){
+	fprintf(fd,"%f+i%f\n",z.a,z.b);
+}
+
 void butterfly(complex_t* a0, complex_t* a1, int order, int n){
 	complex_t W ;
 	complex_t mult_aux ;
@@ -103,6 +112,8 @@ void butterfly(complex_t* a0, complex_t* a1, int order, int n){
 	W.a = cos(2*M_PI*order/n) ;
 	W.b = -sin(2*M_PI*order/n) ;
 
+	print_complex(debug,W);
+
 	mult_aux = complex_mult(*a1, W) ;
 
 	*a0 = complex_add(*a0, mult_aux) ;
@@ -110,56 +121,23 @@ void butterfly(complex_t* a0, complex_t* a1, int order, int n){
 }
 
 void fft(complex_t* res,int length){
-	int i,j,k,power,n ;
+	int i,j,k,power;
 	char niveles = log2(length) ; 
 	int * indexes = (int *) malloc(sizeof(int)*length) ;
-	complex_t w_m, w, mult_aux ;
-	fprintf(debug,"i\tj\tk\n") ;
-//	index_generator(length,indexes) ; 
-	for ( i = 0 ; i < niveles ; i++ ){
-		index_generator(length/(i+1),indexes) ; 
-		p_array_int(debug,indexes,length/(i+1)) ;
+	index_generator(length,indexes) ; 
+	p_array_int(debug,indexes,length);
+	for ( i = 1 ; i <= niveles ; i++ ){
 		power	= pow(2,i) ;
-		// w_m.a 	= cos(2*M_PI/i) ; 
-		// w_m.b 	= -sin(2*M_PI/i) ; 
-		for( j = 0 ; j < power ; j++ ){
-		//for( j = 0 ; j < length ; j=j+power ){
-			//w.a = 1 ;
-			//w.b = 0 ;
-			for ( k = j*length/power ; k < (j+1)*length/power ; k +=  2){
-			//for ( k = 0 ; k < power/2 ; k++){
-				fprintf(debug,"%d\t",i);
-				fprintf(debug,"%d\t",j);
-				fprintf(debug,"%d\n",k);
-				//p_array(debug,res,length);
-				fprintf(debug,"k=%d\tk+1=%d\n",indexes[k],indexes[k+1]) ;
- 				butterfly(&res[indexes[k]],&res[indexes[k+1]],k*(1-j)/2,power*2) ;
-				//p_array(debug,res,length);
-				/*
-				fprintf(debug,"%d\t",i);
-				fprintf(debug,"%d\t",j);
-				fprintf(debug,"%d\n",k);
-				
+		for( j = 0 ; j < length ; j+=power ){
+			for( k = 0 ; k < power/2 ; k++ ) { 
+				fprintf(debug,"up=%d\tdown=%d\t,order=%d\t,n=%d\n",indexes[j+k],indexes[j+k+power/2],k,power) ;
+ 				butterfly(&res[indexes[j+k]],&res[indexes[j+k+power/2]],k,power) ;
 				p_array(debug,res,length);
-				fprintf(debug,"k=%d\tk+1=%d\n",indexes[j+k],indexes[j+k+power/2]) ;
-				
-				mult_aux = complex_mult(w, res[indexes[j+k+power/2]]) ;
- 				butterfly(&res[indexes[k+j]],&mult_aux) ;
-				res[indexes[j+k+power/2]] = mult_aux; 
-				
-				w = complex_mult(w, w_m) ;
-				
-				p_array(debug,res,length);
-				*/
 			}
-	fprintf(debug,"-------------------------\n");
+			fprintf(debug,"JJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ\n");
 		} 
-	fprintf(debug,">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
+			fprintf(debug,"IIIIIIIIIIIIIIIIIIIIIIIIIIIIII\n");
 	}
-	/*for ( i = 0 ; i < length/2 ; i++ ){
-		fprintf(debug,"k=%d\tk+1=%d\n",i,i+length/2) ;
-		butterfly(&res[i], &res[i+length/2]) ;		
-	}*/	
 }
 
 void p_array(FILE* fd,complex_t* array,int size){
@@ -175,7 +153,15 @@ void p_array_int (FILE* fd, int* array,int size){
 	for ( ; i < size ; i++ ){
 			fprintf(fd,"%d ",array[i]) ;
 	}
-			fprintf(fd,"%d ",array[i]) ;
+	fprintf(fd,"\n") ;
+}
+
+void p_array_float (FILE* fd, float* array,int size){
+	int i = 0 ;
+	for ( ; i < size ; i++ ){
+			fprintf(fd,"%f ",array[i]) ;
+	}
+	fprintf(fd,"\n") ;
 }
 
 float norma (complex_t c){

@@ -10,11 +10,11 @@ function compare_fft (bits)
 	plot(x_axis,x) ;
 	title("signal") ;
 	subplot(1,3,2) ;
-	plot(y) ;
+	stem(y) ;
     y;
 	title("octave") ;
 	subplot(1,3,3) ;
-	plot(my_y) ;
+	stem(my_y) ;
 	my_y;
 	title("fft para retards"); 
 endfunction
